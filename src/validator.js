@@ -67,13 +67,13 @@ const constraints = [
     }
 ];
 
-const validator = new Validator(constraints);
+// const validator = new Validator(constraints);
 
 // Valid
-assert.equal(validator.validate({a: 1, b:1}), undefined);
+// assert.equal(validator.validate({a: 1, b:1}), undefined);
 
 // Invalid a - not provided
-assert.equal(validator.validate({b: 0}), [{target: 'a', message: 'Argument a is required'}]);
+// assert.equal(validator.validate({b: 0}), [{target: 'a', message: 'Argument a is required'}]);
 
 // Invalid a - not a number
 // assert.equal(validator.validate({a: 'string', b: 1}), [{target: 'a', message: 'a must be a number (got "string")'}])
@@ -83,6 +83,3 @@ assert.equal(validator.validate({b: 0}), [{target: 'a', message: 'Argument a is 
 
 // Invalid b - not a number
 // assert.equal(validator.validate({b: 'string', a: 1}), [{target: 'b', message: 'b must be a number (got "string")'}])
-
-console.log('done');
-process.exit();
