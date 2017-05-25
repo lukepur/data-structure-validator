@@ -215,4 +215,128 @@ describe('validator:', () => {
       expect(result).to.be.undefined;
     });
   });
+
+  describe('required validation:', () => {
+    describe('value provided:', () => {
+      let validator;
+      beforeEach(() => {
+        validator = new Validator([{id: 'a', required: true, type: 'string'}])
+      });
+
+      it('should return undefined if correct type provided', () => {
+        expect(validator.validate({a: 'hello'})).to.be.undefined;
+      });
+
+      it('should return type message if required member is of incorrect type', () => {
+        const result = validator.validate({a: []});
+        expect(result).length.to.be(1);
+        expect(result[0].target).to.equal('a');
+        expect(result[0].message).to.equal('a is not of type string (got array)');
+      });
+    });
+
+    describe('required value not provided:', () => {
+      describe('required is true:', () => {
+        let validator;
+        beforeEach(() => {
+          validator = new Validator([{
+            id: 'a',
+            type: 'string',
+            required: true
+          }]);
+        });
+
+        it('should return default required message', () => {
+          const result = validator.validate({});
+          expect(result).length.to.be(1);
+          expect(result[0].target).to.equal('a');
+          expect(result[0].message).to.equal('a is required');
+        });
+
+      });
+
+      describe('required is custom message string:', () => {
+        let validator;
+        beforeEach(() => {
+          validator = new Validator([{
+            id: 'a',
+            type: 'string',
+            required: 'Please provide a'
+          }]);
+        });
+
+        it('should return custom required message', () => {
+          const result = validator.validate({});
+          expect(result).length.to.be(1);
+          expect(result[0].target).to.equal('a');
+          expect(result[0].message).to.equal('Please provide a');
+        });
+      });
+
+      describe('required is resolvable:', () => {
+        describe('resolvable resolves to true:', () => {
+          let validator;
+          beforeEach(() => {
+            validator = new Validator([{
+              id: 'a',
+              type: 'string',
+              required: {
+                fn: 'returnTrue'
+              }
+            }], ctx)
+          });
+
+          it('should return default message', () => {
+            const result = validator.validate({});
+            expect(result).length.to.be(1);
+            expect(result[0].target).to.equal('a');
+            expect(result[0].message).to.equal('a is required');
+          });
+        });
+      
+        describe('resolvable resolves to false:', () => {
+          let validator;
+          beforeEach(() => {
+            validator = new Validator([{
+              id: 'a',
+              type: 'string',
+              required: {
+                fn: 'returnFalse'
+              }
+            }], ctx)
+          });
+
+          it('should return undefined ', () => {
+            expect(validator.validate({})).to.be.undefined;
+          });
+        });
+
+        describe('resolvable resolves to string:', () => {
+          let validator;
+          beforeEach(() => {
+            validator = new Validator([{
+              id: 'a',
+              type: 'string',
+              required: {
+                fn: 'returnMessage'
+              }
+            }], ctx)
+          });
+
+          it('should return custom message as returned by the resolvable', () => {
+            const result = validator.validate({});
+            expect(result).length.to.be(1);
+            expect(result[0].target).to.equal('a');
+            expect(result[0].message).to.equal('Please provide a');
+          });
+        });
+      });
+    });
+  });
 });
+
+const ctx = {
+  returnTrue: ()=>true,
+  returnFalse: ()=>false,
+  returnMessage: ()=>'Please provide $value'
+};

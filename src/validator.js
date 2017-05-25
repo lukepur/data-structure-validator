@@ -1,8 +1,14 @@
 const assert = require('assert');
+const { find, isEmpty, assign } = require('lodash');
+const resolve = require('data-resolver');
+
+const defaultContext = require('./context');
 
 const TARGET_PROP = 'target';
+const MESSAGE_PROP = 'message';
 
-const Validator = function (constraintConfiguration) {
+const Validator = function (constraintConfiguration, ctx = {}) {
+    const context = assign({}, defaultContext, ctx);
     this.validate = function (data) {
         // For each constraint member:
         // 1. Ensure type correct (allow undefined - will be caught by required)
@@ -14,18 +20,32 @@ const Validator = function (constraintConfiguration) {
         // 5. return undefined
         const validationMessages = [];
         constraintConfiguration.forEach(constraint => {
-            const targetData = data[constraint.id];
-            
+            const path = constraint.id;
+            const targetData = data[path];
+            const validations = constraint.validations || [];
             // validate type
             if (!isType(targetData, constraint.type)) {
                 validationMessages.push({
-                    [TARGET_PROP]: constraint.id,
-                    message: `${constraint.id} is not of type ${constraint.type} (got ${getType(targetData)})`
+                    [TARGET_PROP]: path,
+                    [MESSAGE_PROP]: `${path} is not of type ${constraint.type} (got ${getType(targetData)})`
                 });
                 return; // One validation message per constraint member
             }
 
             // validate required
+            const required = constraint.required;
+            if (required && isEmpty(targetData)) {
+                if (!required.fn) {
+                    addRequiredValidationMessage(required, validationMessages, path);
+                    return;
+                }
+                // required is a resolvable
+                const resolvedRequired = resolve(required, data, context, path);
+                if (resolvedRequired) {
+                    addRequiredValidationMessage(resolvedRequired, validationMessages, path);
+                }
+            }
+
         });
         return validationMessages.length ? validationMessages : undefined;
     };
@@ -40,8 +60,34 @@ function getType(data) {
     if (type === 'object' && Array.isArray(data)) return 'array';
     return type;
 }
+
 function isType(data, type) {
     return getType(data) === type || data === undefined;
+}
+
+function addRequiredValidationMessage(required, messages, prop) {
+    messages.push({
+        [TARGET_PROP]: prop,
+        [MESSAGE_PROP]: constructRequiredMessage(required, prop)
+    });
+}
+
+function constructRequiredMessage (required, prop) {
+    let message;
+    if (typeof required === 'string') {
+        message = required;
+    }
+    else if (typeof required.message === 'string') {
+        message = required.message;
+    }
+    else {
+        return `${prop} is required`;
+    }
+    return replacePropPlaceholder(message, prop);
+}
+
+function replacePropPlaceholder(string, prop) {
+    return string.replace(/\$value/g, prop);
 }
 
 module.exports = Validator;
