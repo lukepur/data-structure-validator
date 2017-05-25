@@ -618,6 +618,46 @@ describe('validator:', () => {
       });
     });
   });
+
+  describe('complex validation:', () => {
+    describe('array of object validation:', () => {
+      let validator;
+      beforeEach(() => {
+        validator = new Validator([
+          {
+            id: 'contacts',
+            type: 'array',
+            validations: [
+              {
+                fn: 'arrayMinLength',
+                args: ['$value', 2],
+                message: '$prop must contain at least 2 items'
+              }
+            ],
+            children: {
+              children: [
+                {
+                  id: 'contact_type',
+                  type: 'string',
+                  required: true,
+                  validations: [
+                    {
+                      fn: 'inArray',
+                      args: ['$value', ['phone', 'email']],
+                      message: '$prop must be one of {phone | email}'
+                    }
+                  ]
+                }
+              ]
+            }
+          }
+        ], ctx)
+      });
+      describe('min array length:', () => {
+        
+      });
+    });
+  });
 });
 
 const ctx = {
@@ -625,5 +665,7 @@ const ctx = {
   returnFalse: ()=>false,
   returnMessage: ()=>'Please provide $prop',
   lengthAtLeast: (str, len) => str.length >= len,
-  isEmpty: value => value === undefined
+  isEmpty: value => value === undefined,
+  arrayMinLength: (arr, target) => arr.length >= target,
+  inArray: (arr, target) => arr.indexOf(target) > -1
 };

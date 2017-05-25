@@ -1,8 +1,8 @@
 {
   "name": "data-structure-validator",
-  "version": "0.0.1",
+  "version": "0.0.3",
   "description": "A validator for nested data structures",
-  "main": "dist/resolver.js",
+  "main": "dist/validator.js",
   "repository": {
     "type": "git",
     "url": "https://github.com/lukepur/data-structure-validator"
