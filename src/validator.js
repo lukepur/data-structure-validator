@@ -20,7 +20,7 @@ const Validator = function (constraintConfiguration) {
             if (!isType(targetData, constraint.type)) {
                 validationMessages.push({
                     [TARGET_PROP]: constraint.id,
-                    message: `${constraint.id} is not of type ${constraint.type} (got ${typeof targetData}`
+                    message: `${constraint.id} is not of type ${constraint.type} (got ${getType(targetData)})`
                 });
                 return; // One validation message per constraint member
             }
@@ -35,8 +35,13 @@ const Validator = function (constraintConfiguration) {
     };
 }
 
+function getType(data) {
+    const type = typeof data;
+    if (type === 'object' && Array.isArray(data)) return 'array';
+    return type;
+}
 function isType(data, type) {
-    return typeof data === type || data === undefined;
+    return getType(data) === type || data === undefined;
 }
 
 module.exports = Validator;
