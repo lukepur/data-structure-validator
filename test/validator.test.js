@@ -563,6 +563,60 @@ describe('validator:', () => {
         });
       });
     });
+
+    describe('multiple validation errors', () => {
+      let validator;
+
+      beforeEach(() => {
+        validator = new Validator([
+          {
+            id: 'a',
+            type: 'string',
+            required: true
+          },
+          {
+            id: 'b',
+            children: [
+              {
+                id: 'c',
+                type: 'array',
+                validations: [
+                  {
+                    fn: 'lengthAtLeast',
+                    args: ['$value', 3],
+                    message: '$prop must be at least 3 chars'
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            id: 'd',
+            type: 'number'
+          }
+        ], ctx);
+      });
+
+      describe('validation satisfied', () => {
+        it('should return undefined', () => {
+          const result = validator.validate({a: 'hello', b: {c: ['one', 'two']}, d: 1});
+          expect(result).to.be.undefined;
+        });
+      });
+
+      describe('validation failed', () => {
+        it('should return correct collection of messages', () => {
+          const result = validator.validate({b: {c: ['on', 'two']}, d: '1'});
+          expect(result).length.to.be(3);
+          expect(result[0].target).to.equal('a');
+          expect(result[0].message).to.equal('a is required');
+          expect(result[1].target).to.equal('b.c.0');
+          expect(result[1].message).to.equal('b.c.0 must be at least 3 chars');
+          expect(result[2].target).to.equal('d');
+          expect(result[2].message).to.equal('d is not of type number (got string)');
+        });
+      });
+    });
   });
 });
 
