@@ -415,6 +415,35 @@ describe('validator:', () => {
         });
       });
     });
+
+    describe('conditional required', () => {
+      let validator;
+
+      beforeEach(() => {
+        validator = new Validator([{
+          id: 'a',
+          children: [
+            {id: 'b', type: 'number'},
+            {id: 'c', type: 'number', required: {fn: 'isEmpty', args: ['$.a.b'], message: '$prop is required because b is blank'}}
+          ]
+        }], ctx);
+      });
+
+      describe('value provided', () => {
+        it('should return undefined', () => {
+          expect(validator.validate({a: {b: 1}})).to.be.undefined;
+        });
+      });
+
+      describe('value not provided', () => {
+        it('should return message because conditional required is true', () => {
+          const result = validator.validate({a: {}});
+          expect(result).length.to.be(1);
+          expect(result[0].target).to.equal('a.c');
+          expect(result[0].message).to.equal('a.c is required because b is blank');
+        });
+      });
+    });
   });
 
   describe('custom validation:', () => {
@@ -541,5 +570,6 @@ const ctx = {
   returnTrue: ()=>true,
   returnFalse: ()=>false,
   returnMessage: ()=>'Please provide $prop',
-  lengthAtLeast: (str, len) => str.length >= len
+  lengthAtLeast: (str, len) => str.length >= len,
+  isEmpty: value => value === undefined
 };

@@ -53,6 +53,13 @@ const Validator = function (constraintConfiguration, ctx = {}) {
 			// required is a resolvable
 			const resolvedRequired = resolve(required, data, context, path);
 			if (resolvedRequired) {
+        if (required.message) {
+					validationMessages.push({
+						[TARGET_PROP]: path,
+						[MESSAGE_PROP]: replacePropPlaceholder(required.message, path)
+					});
+					return;
+				}
 				addRequiredValidationMessage(resolvedRequired, validationMessages, path);
 				return;
 			}
