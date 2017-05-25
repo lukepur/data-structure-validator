@@ -95,6 +95,8 @@ describe('validator:', () => {
     });
 
     describe('object type:', () => {
+      let validator;
+
       beforeEach(() => {
         validator = new Validator([{id: 'a', type: 'object' }]);
       });
@@ -134,6 +136,8 @@ describe('validator:', () => {
     });
 
     describe('array type:', () => {
+      let validator;
+
       beforeEach(() => {
         validator = new Validator([{id: 'a', type: 'array' }]);
       });
@@ -173,6 +177,8 @@ describe('validator:', () => {
     });
 
     describe('function type:', () => {
+      let validator;
+
       beforeEach(() => {
         validator = new Validator([{id: 'a', type: 'function' }]);
       });
@@ -209,10 +215,48 @@ describe('validator:', () => {
         expect(result[0].target).to.equal('a');
         expect(result[0].message).to.equal('a is not of type function (got array)');
       });
-    });    it('should return undefined for correct function type', () => {
-      const validator = new Validator([{id: 'a', type: 'function' }]);
-      var result = validator.validate({a: a=>{}});
-      expect(result).to.be.undefined;
+    });
+
+    describe('implicit object type when node has children', () => {
+      let validator;
+
+      beforeEach(() => {
+        validator = new Validator([{id: 'a', children: [{id: 'b', type: 'string'}] }]);
+      });
+
+      it('should return undefined for correct object type', () => {
+        var result = validator.validate({a: {b: '1'}});
+        expect(result).to.be.undefined;
+      });
+
+      it('should return correct message for string instead of object', () => {
+        const result = validator.validate({a: '1'});
+        expect(result).length.to.be(1);
+        expect(result[0].target).to.equal('a');
+        expect(result[0].message).to.equal('a is not of type object (got string)');
+      });
+
+      it('should return correct message for number instead of object', () => {
+        const result = validator.validate({a: 1});
+        expect(result).length.to.be(1);
+        expect(result[0].target).to.equal('a');
+        expect(result[0].message).to.equal('a is not of type object (got number)');
+      });
+
+      it('should return correct message for array instead of object', () => {
+        const result = validator.validate({a: []});
+        expect(result).length.to.be(1);
+        expect(result[0].target).to.equal('a');
+        expect(result[0].message).to.equal('a is not of type object (got array)');
+      });
+
+      it('should return correct message for function instead of object', () => {
+        const result = validator.validate({a: x=>{}});
+        expect(result).length.to.be(1);
+        expect(result[0].target).to.equal('a');
+        expect(result[0].message).to.equal('a is not of type object (got function)');
+      });
+      
     });
   });
 
@@ -261,7 +305,7 @@ describe('validator:', () => {
           validator = new Validator([{
             id: 'a',
             type: 'string',
-            required: 'Please provide a'
+            required: 'Please provide $prop'
           }]);
         });
 
@@ -332,11 +376,50 @@ describe('validator:', () => {
         });
       });
     });
+
+    describe('nested required values', () => {
+      describe('value provided', () => {
+        let validator;
+
+        beforeEach(() => {
+          validator = new Validator([{
+            id: 'a',
+            children: [
+              {id: 'b', required: true, type: 'number'}
+            ]
+          }]);
+        });
+
+        it('should return undefined', () => {
+          expect(validator.validate({a: {b: 1}})).to.be.undefined;
+        });
+      });
+
+      describe('value not provided', () => {
+        let validator;
+
+        beforeEach(() => {
+          validator = new Validator([{
+            id: 'a',
+            children: [
+              {id: 'b', required: true, type: 'string'}
+            ]
+          }]);
+        });
+
+        it('should return nested message', () => {
+          const result = validator.validate({a: {}});
+          expect(result).length.to.be(1);
+          expect(result[0].target).to.equal('a.b');
+          expect(result[0].message).to.equal('a.b is required');
+        });
+      });
+    });
   });
 });
 
 const ctx = {
   returnTrue: ()=>true,
   returnFalse: ()=>false,
-  returnMessage: ()=>'Please provide $value'
+  returnMessage: ()=>'Please provide $prop'
 };
