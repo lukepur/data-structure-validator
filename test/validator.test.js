@@ -416,10 +416,130 @@ describe('validator:', () => {
       });
     });
   });
+
+  describe('custom validation:', () => {
+    describe('root-level validation', () => {
+      let validator;
+
+      beforeEach(() => {
+        validator = new Validator([
+          {
+            id: 'a',
+            type: 'string',
+            validations: [
+              {
+                fn: 'lengthAtLeast',
+                args: ['$value', 3],
+                message: '$prop must be at least 3 chars'
+              }
+            ]
+          }
+        ], ctx);
+      });
+
+      describe('validation passes', () => {
+        it('should return undefined if target satisfies validation', () => {
+          expect(validator.validate({a: 'four'})).to.be.undefined;
+        });
+      });
+
+      describe('validation does not pass', () => {
+        it('should return correct error message', () => {
+          const result = validator.validate({a: 'to'});
+          expect(result).length.to.be(1);
+          expect(result[0].target).to.equal('a');
+          expect(result[0].message).to.equal('a must be at least 3 chars');
+        });
+      });
+    });
+
+    describe('nested validation', () => {
+      let validator;
+
+      beforeEach(() => {
+        validator = new Validator([
+          {
+            id: 'a',
+            children:[
+              {
+                id: 'b',
+                type: 'string',
+                validations: [
+                  {
+                    fn: 'lengthAtLeast',
+                    args: ['$value', 3],
+                    message: '$prop must be at least 3 chars'
+                  }
+                ]
+              }
+            ]
+          }
+        ], ctx);
+      });
+
+      describe('validation passes', () => {
+        it('should return undefined if target satisfies validation', () => {
+          expect(validator.validate({a: {b: 'four'}})).to.be.undefined;
+        });
+      });
+
+      describe('validation does not pass', () => {
+        it('should return correct error message', () => {
+          const result = validator.validate({a: {b: 'to'}});
+          expect(result).length.to.be(1);
+          expect(result[0].target).to.equal('a.b');
+          expect(result[0].message).to.equal('a.b must be at least 3 chars');
+        });
+      });
+    });
+
+    describe('array validation', () => {
+      let validator;
+
+      beforeEach(() => {
+        validator = new Validator([
+          {
+            id: 'a',
+            type: 'array',
+            validations: [
+              {
+                fn: 'lengthAtLeast',
+                args: ['$value', 3],
+                message: '$prop must be at least 3 chars'
+              }
+            ]
+          }
+        ], ctx);
+      });
+
+      describe('validation passes', () => {
+        it('should return undefined', () => {
+          expect(validator.validate({a: ['One', 'Two']})).to.be.undefined;
+        });
+      });
+
+      describe('validation fails', () => {
+        it('should return correct path and message', () => {
+          const result = validator.validate({a: ['on', 'two']});
+          expect(result).length.to.be(1);
+          expect(result[0].target).to.equal('a.0');
+          expect(result[0].message).to.equal('a.0 must be at least 3 chars');
+        });
+  
+        it('should return correct path and message', () => {
+          const result = validator.validate({a: ['one', 'tw']});
+          expect(result).length.to.be(1);
+          expect(result[0].target).to.equal('a.1');
+          expect(result[0].message).to.equal('a.1 must be at least 3 chars');
+        });
+      });
+    });
+  });
 });
 
 const ctx = {
   returnTrue: ()=>true,
   returnFalse: ()=>false,
-  returnMessage: ()=>'Please provide $prop'
+  returnMessage: ()=>'Please provide $prop',
+  lengthAtLeast: (str, len) => str.length >= len
 };

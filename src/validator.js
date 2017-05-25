@@ -34,6 +34,7 @@ const Validator = function (constraintConfiguration, ctx = {}) {
 
 	function validateNode(constraint, path, data, validationMessages) {
 		const targetData = get(data, path);
+		const { required, validations } = constraint;
 		// validate type
 		if (!isType(targetData, constraint)) {
 			validationMessages.push({
@@ -44,7 +45,6 @@ const Validator = function (constraintConfiguration, ctx = {}) {
 		}
 
 		// validate required
-		const required = constraint.required;
 		if (required && isBlank(targetData)) {
 			if (!required.fn) {
 				addRequiredValidationMessage(required, validationMessages, path);
@@ -59,7 +59,35 @@ const Validator = function (constraintConfiguration, ctx = {}) {
 		}
 
 		// Other validations
-
+    if (validations) {
+      for (let i = 0; i < validations.length; i += 1) {
+        const validation = validations[i];
+        let result;
+				if (constraint.type === 'array') {
+					for (let j = 0; j < targetData.length; j += 1) {
+            const arrPath = `${path}.${j}`;
+						result = resolve(validation, data, context, arrPath);
+						if (!result) {
+							validationMessages.push({
+								[TARGET_PROP]: arrPath,
+								[MESSAGE_PROP]: validation.message ? replacePropPlaceholder(validation.message, arrPath) : `${arrPath} is invalid (${validation.fn})`
+							});
+							return;
+						}
+					}
+				}
+				else {
+					result = resolve(validation, data, context, path);
+					if (!result) {
+						validationMessages.push({
+							[TARGET_PROP]: path,
+							[MESSAGE_PROP]: validation.message ? replacePropPlaceholder(validation.message, path) : `${path} is invalid (${validation.fn})`
+						});
+						return;
+					}
+				}
+			}
+		}
 		// recurse down
     const { children } = constraint;
 		if (Array.isArray(children)) {
@@ -132,46 +160,3 @@ function ensureHasType(constraint) {
 }
 
 module.exports = Validator;
-
-// example
-const constraints = [
-	{
-		id: 'a',
-		type: 'number',
-		validations: [
-			{
-				fn: 'required',
-				args: [true],
-				message: 'Argument a is required'
-			}
-		]
-	},
-	{
-		id: 'b',
-		type: 'number',
-		validations: [
-			{
-				fn: 'required',
-				args: [{ fn: 'returnTrue' }],
-				message: 'Argument b is required'
-			}
-		]
-	}
-];
-
-// const validator = new Validator(constraints);
-
-// Valid
-// assert.equal(validator.validate({a: 1, b:1}), undefined);
-
-// Invalid a - not provided
-// assert.equal(validator.validate({b: 0}), [{target: 'a', message: 'Argument a is required'}]);
-
-// Invalid a - not a number
-// assert.equal(validator.validate({a: 'string', b: 1}), [{target: 'a', message: 'a must be a number (got "string")'}])
-
-// Invalid b - not provided
-// assert.equal(validator.validate({a: 1}), [{target: 'b', message: 'Argument b is required'}]);
-
-// Invalid b - not a number
-// assert.equal(validator.validate({b: 'string', a: 1}), [{target: 'b', message: 'b must be a number (got "string")'}])
