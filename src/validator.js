@@ -34,7 +34,7 @@ const Validator = function (constraintConfiguration, ctx = {}) {
 
   function validateNode(constraint, path, data, validationMessages) {
     const targetData = get(data, path);
-    const { required, validations } = constraint;
+    const { required, validations, children } = constraint;
     // validate type
     if (!isType(targetData, constraint)) {
       validationMessages.push({
@@ -50,6 +50,7 @@ const Validator = function (constraintConfiguration, ctx = {}) {
         addRequiredValidationMessage(required, validationMessages, path);
         return;
       }
+
       // required is a resolvable
       const resolvedRequired = resolve(required, data, context, path);
       if (resolvedRequired) {
@@ -67,40 +68,35 @@ const Validator = function (constraintConfiguration, ctx = {}) {
 
     // Other validations
     if (validations) {
-      for (let i = 0; i < validations.length; i += 1) {
+     for (let i = 0; i < validations.length; i += 1) {
         const validation = validations[i];
         let result;
-        if (constraint.type === 'array') {
-          for (let j = 0; j < targetData.length; j += 1) {
-            const arrPath = `${path}.${j}`;
-            result = resolve(validation, data, context, arrPath);
-            if (!result) {
-              validationMessages.push({
-                [TARGET_PROP]: arrPath,
-                [MESSAGE_PROP]: validation.message ? replacePropPlaceholder(validation.message, arrPath) : `${arrPath} is invalid (${validation.fn})`
-              });
-              return;
-            }
-          }
-        }
-        else {
-          result = resolve(validation, data, context, path);
-          if (!result) {
-            validationMessages.push({
-              [TARGET_PROP]: path,
-              [MESSAGE_PROP]: validation.message ? replacePropPlaceholder(validation.message, path) : `${path} is invalid (${validation.fn})`
-            });
-            return;
-          }
+        result = resolve(validation, data, context, path);
+        if (!result) {
+          validationMessages.push({
+            [TARGET_PROP]: path,
+            [MESSAGE_PROP]: validation.message ? replacePropPlaceholder(validation.message, path) : `${path} is invalid (${validation.fn})`
+          });
+          return;
         }
       }
     }
+
+    if (constraint.type === 'array' && children && getType(children) === 'object' && Array.isArray(targetData)) {
+      // run validator on each array member
+      for (let j = 0; j < targetData.length; j += 1) {
+        const arrPath = `${path}.${j}`;
+        validateNode(children, arrPath, data, validationMessages);
+      }
+    }
+
     // recurse down
-    const { children } = constraint;
-    if (Array.isArray(children)) {
-      children.forEach(childConstraint => {
-        validateNode(childConstraint, path + '.' + childConstraint.id, data, validationMessages);
-      });
+    if (children) {
+      if (Array.isArray(children)) {
+        children.forEach(childConstraint => {
+          validateNode(childConstraint, path + '.' + childConstraint.id, data, validationMessages);
+        });
+      }
     }
   }
 }
@@ -113,7 +109,14 @@ function getType(data) {
 
 function isType(data, constraint) {
   const { type } = constraint;
-  if (constraint.children && getType(data) === 'object') return true;
+  // ignore type for objects with children (they are implicitly objects/array)
+  if (constraint.children && getType(data) === 'object') {
+    return true;
+  }
+  // allow missing type for array if children is object
+  if (constraint.children && getType(data) === 'array' && getType(constraint.children) === 'object') {
+    return true;
+  }
   return getType(data) === type || data === undefined;
 }
 
@@ -132,38 +135,44 @@ function constructRequiredMessage(required, prop) {
   let message;
   if (typeof required === 'string') {
     message = required;
-  }
-  else if (typeof required.message === 'string') {
-    message = required.message;
-  }
-  else {
-    return `${prop} is required`;
-  }
-  return replacePropPlaceholder(message, prop);
+}
+	else if (typeof required.message === 'string') {
+		message = required.message;
+	}
+	else {
+		return `${prop} is required`;
+	}
+	return replacePropPlaceholder(message, prop);
 }
 
 function replacePropPlaceholder(string, prop) {
-  return string.replace(/\$prop/g, prop);
+	return string.replace(/\$prop/g, prop);
 }
 
 function validateConstraintConfiguration(config) {
-  if (!Array.isArray(config)) {
-    throw new Error('Configuration must be array');
-  }
+	if (!Array.isArray(config)) {
+		throw new Error('Configuration must be array');
+	}
 
-  // recursively ensure each node has a type
-  config.forEach(constraint => {
-    ensureHasType(constraint);
-  });
+	// recursively ensure each node has a type
+	config.forEach(constraint => {
+		ensureHasType(constraint);
+	});
 }
 
 function ensureHasType(constraint) {
-  if (!constraint.type && !constraint.children) {
-    throw new Error(`${constraint.id} does not have a type`);
-  }
-  if (constraint.children) {
-    constraint.children.forEach(c => ensureHasType(c))
-  }
+  const { children } = constraint;
+	if (!constraint.type && !children) {
+		throw new Error(`${constraint.id} does not have a type`);
+	}
+	if (children) {
+    if (Array.isArray(children)) {
+      children.forEach(c => ensureHasType(c));
+    }
+    else {
+      ensureHasType(children);
+    }
+	}
 }
 
 module.exports = Validator;

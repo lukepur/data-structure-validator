@@ -522,7 +522,7 @@ describe('validator:', () => {
       });
     });
 
-    describe('array validation', () => {
+    describe('array validation:', () => {
       let validator;
 
       beforeEach(() => {
@@ -530,13 +530,16 @@ describe('validator:', () => {
           {
             id: 'a',
             type: 'array',
-            validations: [
-              {
-                fn: 'lengthAtLeast',
-                args: ['$value', 3],
-                message: '$prop must be at least 3 chars'
-              }
-            ]
+            children: {
+              type: 'string',
+              validations: [
+                {
+                  fn: 'lengthAtLeast',
+                  args: ['$value', 3],
+                  message: '$prop must be at least 3 chars'
+                }
+              ]
+            }
           }
         ], ctx);
       });
@@ -564,7 +567,7 @@ describe('validator:', () => {
       });
     });
 
-    describe('multiple validation errors', () => {
+    describe('multiple validation errors:', () => {
       let validator;
 
       beforeEach(() => {
@@ -580,13 +583,16 @@ describe('validator:', () => {
               {
                 id: 'c',
                 type: 'array',
-                validations: [
-                  {
-                    fn: 'lengthAtLeast',
-                    args: ['$value', 3],
-                    message: '$prop must be at least 3 chars'
-                  }
-                ]
+                children: {
+                  type: 'string',
+                  validations: [
+                    {
+                      fn: 'lengthAtLeast',
+                      args: ['$value', 3],
+                      message: '$prop must be at least 3 chars'
+                    }
+                  ]
+                }
               }
             ]
           },
@@ -621,7 +627,7 @@ describe('validator:', () => {
 
   describe('complex validation:', () => {
     describe('array of object validation:', () => {
-      let validator;
+      let validator, validData;
       beforeEach(() => {
         validator = new Validator([
           {
@@ -647,14 +653,140 @@ describe('validator:', () => {
                       message: '$prop must be one of {phone | email}'
                     }
                   ]
+                },
+                {
+                  id: 'value',
+                  type: 'string',
+                  required: true
+                },
+                {
+                  id: 'functions',
+                  type: 'array',
+                  children: {
+                    children: [
+                      {
+                        id: 'name',
+                        type: 'string',
+                        required: true
+                      },
+                      {
+                        id: 'priority',
+                        type: 'number',
+                        required: true,
+                        validations: [
+                          {
+                            fn: 'greaterThanOrEqual',
+                            args: ['$value', 0],
+                            message: '$prop must be greater than or equal to 0'
+                          },
+                          {
+                            fn: 'lessThan',
+                            args: ['$value', 3],
+                            message: '$prop must be less than 3'
+                          }
+                        ]
+                      }
+                    ]
+                  }
                 }
               ]
             }
           }
-        ], ctx)
+        ], ctx);
+
+        validData = {
+          contacts: [
+            {
+              contact_type: 'phone',
+              value: '020202020',
+              functions: [
+                {
+                  name: 'Home',
+                  priority: 1
+                },
+                {
+                  name: 'Work',
+                  priority: 2
+                }
+              ]
+            },
+            {
+              contact_type: 'email',
+              value: 'a@b.com',
+              functions: [
+                {
+                  name: 'All',
+                  priority: 1
+                }
+              ]
+            }
+          ]
+        };
       });
+
       describe('min array length:', () => {
-        
+        it('should return undefined if min length of array met', () => {
+          const result = validator.validate(validData);
+          expect(result).to.be.undefined;
+        });
+
+        it('should return correct error message if array length is not met', () => {
+          const result = validator.validate({
+            contacts: []
+          });
+          expect(result.length).to.eql(1);
+          expect(result[0].target).to.eql('contacts');
+          expect(result[0].message).to.eql('contacts must contain at least 2 items');
+        });
+      });
+
+      describe('array member validation', () => {
+        it('should return correct error message if array contains invalid item', () => {
+          const result = validator.validate({
+            contacts: [
+              {
+                contact_type: 1,
+                value: '03030'
+              },
+              {
+                contact_type: 'phone',
+                value: '0303030'
+              }
+            ]
+          });
+          expect(result.length).to.eql(1);
+          expect(result[0].target).to.eql('contacts.0.contact_type');
+          expect(result[0].message).to.eql('contacts.0.contact_type is not of type string (got number)');
+        });
+
+        it('should return correct error message if array contains multiple invalid items', () => {
+          const result = validator.validate({
+            contacts: [
+              { contact_type: 1, value: 'test' },
+              { contact_type: 'not in enum', value: 'test' }
+            ]
+          });
+          expect(result.length).to.eql(2);
+          expect(result[0].target).to.eql('contacts.0.contact_type');
+          expect(result[0].message).to.eql('contacts.0.contact_type is not of type string (got number)');
+          expect(result[1].target).to.eql('contacts.1.contact_type');
+          expect(result[1].message).to.eql('contacts.1.contact_type must be one of {phone | email}');
+        });
+
+        it('should return correct errorm message for missing required field for optional parent', () => {
+          const result = validator.validate({
+            contacts: [ 
+              { contact_type: 'phone', value: 'test', functions: [{name: '', priority: 'e'}]},
+              { contact_type: 'email', value: 'test' }
+            ]
+          });
+
+          expect(result.length).to.eql(2);
+          expect(result[0].target).to.eql('contacts.0.functions.0.name');
+          expect(result[0].message).to.eql('contacts.0.functions.0.name is required');
+          expect(result[1].target).to.eql('contacts.0.functions.0.priority');
+          expect(result[1].message).to.eql('contacts.0.functions.0.priority is not of type number (got string)');
+        });
       });
     });
   });
@@ -667,5 +799,7 @@ const ctx = {
   lengthAtLeast: (str, len) => str.length >= len,
   isEmpty: value => value === undefined,
   arrayMinLength: (arr, target) => arr.length >= target,
-  inArray: (arr, target) => arr.indexOf(target) > -1
+  inArray: (target, arr) => arr.indexOf(target) > -1,
+  greaterThanOrEqual: (val, target) => val >= target,
+  lessThan: (val, target) => val < target
 };
