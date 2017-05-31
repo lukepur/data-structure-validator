@@ -217,6 +217,39 @@ describe('validator:', () => {
       });
     });
 
+    describe('any type:', () => {
+      let validator;
+
+      beforeEach(() => {
+        validator = new Validator([{id: 'a', type: 'any' }]);
+      });
+
+      it('should return undefined for correct string type', () => {
+        var result = validator.validate({a: 'string'});
+        expect(result).to.be.undefined;
+      });
+
+      it('should return undefined for correct number type', () => {
+        var result = validator.validate({a: 1});
+        expect(result).to.be.undefined;
+      });
+
+      it('should return undefined for correct object type', () => {
+        var result = validator.validate({a: {}});
+        expect(result).to.be.undefined;
+      });
+
+      it('should return undefined for correct array type', () => {
+        var result = validator.validate({a: []});
+        expect(result).to.be.undefined;
+      });
+
+      it('should return undefined for correct function type', () => {
+        var result = validator.validate({a: x=>{}});
+        expect(result).to.be.undefined;
+      });
+    });
+
     describe('implicit object type when node has children', () => {
       let validator;
 

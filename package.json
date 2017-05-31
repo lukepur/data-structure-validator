@@ -1,6 +1,6 @@
 {
   "name": "data-structure-validator",
-  "version": "0.0.3",
+  "version": "0.0.6",
   "description": "A validator for nested data structures",
   "main": "dist/validator.js",
   "repository": {

@@ -109,6 +109,7 @@ function getType(data) {
 
 function isType(data, constraint) {
   const { type } = constraint;
+  if (type === 'any') return true; 
   // ignore type for objects with children (they are implicitly objects/array)
   if (constraint.children && getType(data) === 'object') {
     return true;
